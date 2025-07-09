@@ -23,6 +23,7 @@ async function carregarProdutos() {
   const contagemStatus = { ok: 0, comprar: 0, cheio: 0 };
   const produtosParaComprar = {};
 
+
   // Aplica filtros
   const produtosFiltrados = data.filter(produto => {
     const status = calcularStatus(produto);
@@ -51,7 +52,7 @@ async function carregarProdutos() {
       <td>${produto.codigo || ""}</td>
       <td>${produto.nome}</td>
       <td>${produto.qtd_atual}</td>
-      <td>${status}</td>
+      <td style="color: ${status.startsWith("Comprar") ? 'red' : 'inherit'}">${status}</td>
       <td>
         <input type="number" min="0" class="form-control form-control-sm" id="input-${produto.id}" placeholder="Nova qtd" />
         <button class="btn btn-sm btn-success mt-1" onclick="atualizarQtd(${produto.id})">Atualizar</button>
@@ -60,6 +61,7 @@ async function carregarProdutos() {
         <button class="btn btn-sm btn-warning mb-1" onclick="editarProduto(${produto.id})">Editar</button><br/>
         <button class="btn btn-sm btn-danger" onclick="excluirProduto(${produto.id})">Excluir</button>
       </td>
+      <td>${new Date(produto.atualizado_em).toLocaleString("pt-BR")}</td>
     `;
     tbody.appendChild(linha);
 
@@ -68,15 +70,23 @@ async function carregarProdutos() {
     if (status === "Estoque OK") contagemStatus.ok++;
     else if (status.startsWith("Comprar")) {
       contagemStatus.comprar++;
-      const qtd = parseInt(status.replace("Comprar ", ""));
+      const qtd = produto.qtd_maxima - produto.qtd_atual;
       produtosParaComprar[produto.nome] = qtd;
     } else if (status === "Estoque cheio") contagemStatus.cheio++;
+    
   });
+
+  renderizarTabelaCompras(produtosParaComprar);
 
   preencherFiltroCategorias(categorias);
   renderizarPaginacao(totalPaginas);
   renderizarGraficoStatus(contagemStatus);
   renderizarGraficoCompra(produtosParaComprar);
+
+  if (contagemStatus.comprar > 0) {
+  const beep = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+  beep.play();
+}
 }
 
 function renderizarPaginacao(totalPaginas) {
@@ -117,7 +127,7 @@ function preencherFiltroCategorias(categorias) {
 
 function calcularStatus(prod) {
   if (prod.qtd_atual < prod.qtd_minima) {
-    return `Comprar ${prod.qtd_minima - prod.qtd_atual}`;
+  return `Comprar ${prod.qtd_maxima - prod.qtd_atual}`;
   }
   if (prod.qtd_atual > prod.qtd_maxima) {
     return "Estoque cheio";
@@ -130,7 +140,7 @@ async function atualizarQtd(id) {
   const novaQtd = parseInt(input.value);
   if (isNaN(novaQtd)) return alert("Digite uma quantidade válida");
 
-  await supabaseClient.from("Produtos").update({ qtd_atual: novaQtd }).eq("id", id);
+  await supabaseClient.from("Produtos").update({ qtd_atual: novaQtd, atualizado_em: new Date().toISOString() }).eq("id", id);
   carregarProdutos();
 }
 
@@ -146,11 +156,11 @@ document.getElementById("form-produto").addEventListener("submit", async (e) => 
 
   if (idEditando) {
     await supabaseClient.from("Produtos").update({
-      codigo, nome, qtd_minima, qtd_maxima, qtd_atual, categoria
+      codigo, nome, qtd_minima, qtd_maxima, qtd_atual, categoria, atualizado_em: new Date().toISOString()
     }).eq("id", idEditando);
     idEditando = null;
   } else {
-    await supabaseClient.from("Produtos").insert([{ codigo, nome, qtd_minima, qtd_maxima, qtd_atual, categoria }]);
+    await supabaseClient.from("Produtos").insert([{ codigo, nome, qtd_minima, qtd_maxima, qtd_atual, categoria, atualizado_em: new Date().toISOString() }]);
   }
 
   e.target.reset();
@@ -234,6 +244,28 @@ function renderizarGraficoCompra(dados) {
         legend: { display: false }
       }
     }
+  });
+}
+
+function renderizarTabelaCompras(dados) {
+  const tbody = document.getElementById("tabela-compras");
+  if (!tbody) return;
+
+  tbody.innerHTML = "";
+
+  const nomes = Object.keys(dados);
+  if (nomes.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="2" class="text-center">Nenhum produto com necessidade de compra.</td></tr>`;
+    return;
+  }
+
+  nomes.forEach(nome => {
+    const linha = document.createElement("tr");
+    linha.innerHTML = `
+      <td>${nome}</td>
+      <td>${dados[nome]}</td>
+    `;
+    tbody.appendChild(linha);
   });
 }
 
