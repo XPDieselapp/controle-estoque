@@ -11,11 +11,24 @@ let chartCompra = null;
 let paginaAtual = 1;
 const produtosPorPagina = 10;
 
+let todosProdutos = []; // declarar fora da função (global)
+
 async function carregarProdutos() {
-  const { data, error } = await supabaseClient.from("Produtos").select("*").order("id", { ascending: true });
+  const { data, error } = await supabaseClient
+    .from("Produtos")
+    .select("*")
+    .order("id", { ascending: true });
+
+  if (error) {
+    console.error("Erro ao carregar produtos:", error.message);
+    return;
+  }
+
+  todosProdutos = data; // salvando todos os produtos globalmente
 
   const filtro = document.getElementById("filtro-categoria").value;
   const filtroStatus = document.getElementById("filtro-status")?.value || "";
+  const termoBusca = document.getElementById("busca-produto")?.value?.toLowerCase() || "";
   const tbody = document.getElementById("produtos-lista");
   tbody.innerHTML = "";
 
@@ -23,43 +36,54 @@ async function carregarProdutos() {
   const contagemStatus = { ok: 0, comprar: 0, cheio: 0 };
   const produtosParaComprar = {};
 
-
-  // Aplica filtros
   const produtosFiltrados = data.filter(produto => {
     const status = calcularStatus(produto);
-    if (filtro && produto.categoria !== filtro) return false;
+
     if (
-      (filtroStatus === "ok" && status !== "Estoque OK") ||
-      (filtroStatus === "comprar" && !status.startsWith("Comprar")) ||
-      (filtroStatus === "cheio" && status !== "Estoque cheio")
+      termoBusca &&
+      !produto.nome.toLowerCase().includes(termoBusca) &&
+      !(produto.codigo || "").toLowerCase().includes(termoBusca)
     ) return false;
+
+    if (filtro && produto.categoria !== filtro) return false;
+
+    if (
+      (filtroStatus === "ok" && status !== "ok") ||
+      (filtroStatus === "comprar" && !status.startsWith("comprar")) ||
+      (filtroStatus === "cheio" && status !== "cheio")
+    ) return false;
+
     return true;
   });
 
-  const totalPaginas = Math.ceil(produtosFiltrados.length / produtosPorPagina);
+  const totalPaginas = Math.ceil(produtosFiltrados.length / 10);
   if (paginaAtual > totalPaginas) paginaAtual = totalPaginas || 1;
 
-  const inicio = (paginaAtual - 1) * produtosPorPagina;
-  const fim = inicio + produtosPorPagina;
-
+  const inicio = (paginaAtual - 1) * 10;
+  const fim = inicio + 10;
   const produtosPagina = produtosFiltrados.slice(inicio, fim);
 
-  produtosPagina.forEach((produto) => {
+  produtosPagina.forEach(produto => {
     const status = calcularStatus(produto);
-
     const linha = document.createElement("tr");
     linha.innerHTML = `
       <td>${produto.codigo || ""}</td>
       <td>${produto.nome}</td>
       <td>${produto.qtd_atual}</td>
-      <td style="color: ${status.startsWith("Comprar") ? 'red' : 'inherit'}">${status}</td>
+      <td>${renderizarStatusBadge(status)}</td>
       <td>
         <input type="number" min="0" class="form-control form-control-sm" id="input-${produto.id}" placeholder="Nova qtd" />
-        <button class="btn btn-sm btn-success mt-1" onclick="atualizarQtd(${produto.id})">Atualizar</button>
+        <button class="btn btn-sm btn-success mt-1" onclick="atualizarQtd(${produto.id})" title="Atualizar quantidade">
+          <i class="bi bi-check-circle"></i>
+        </button>
       </td>
       <td>
-        <button class="btn btn-sm btn-warning mb-1" onclick="editarProduto(${produto.id})">Editar</button><br/>
-        <button class="btn btn-sm btn-danger" onclick="excluirProduto(${produto.id})">Excluir</button>
+        <button class="btn btn-sm btn-warning mb-1" onclick="editarProduto(${produto.id})" title="Editar">
+          <i class="bi bi-pencil-square"></i>
+        </button><br/>
+        <button class="btn btn-sm btn-danger" onclick="excluirProduto(${produto.id})" title="Excluir">
+          <i class="bi bi-trash"></i>
+        </button>
       </td>
       <td>${new Date(produto.atualizado_em).toLocaleString("pt-BR")}</td>
     `;
@@ -67,26 +91,24 @@ async function carregarProdutos() {
 
     categorias.add(produto.categoria);
 
-    if (status === "Estoque OK") contagemStatus.ok++;
-    else if (status.startsWith("Comprar")) {
+    if (status === "ok") contagemStatus.ok++;
+    else if (status.startsWith("comprar")) {
       contagemStatus.comprar++;
-      const qtd = produto.qtd_maxima - produto.qtd_atual;
+      const qtd = parseInt(status.split("-")[1]);
       produtosParaComprar[produto.nome] = qtd;
-    } else if (status === "Estoque cheio") contagemStatus.cheio++;
-    
+    } else if (status === "cheio") contagemStatus.cheio++;
   });
 
   renderizarTabelaCompras(produtosParaComprar);
-
   preencherFiltroCategorias(categorias);
   renderizarPaginacao(totalPaginas);
   renderizarGraficoStatus(contagemStatus);
   renderizarGraficoCompra(produtosParaComprar);
 
   if (contagemStatus.comprar > 0) {
-  const beep = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
-  beep.play();
-}
+    const beep = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+    beep.play();
+  }
 }
 
 function renderizarPaginacao(totalPaginas) {
@@ -127,12 +149,12 @@ function preencherFiltroCategorias(categorias) {
 
 function calcularStatus(prod) {
   if (prod.qtd_atual < prod.qtd_minima) {
-  return `Comprar ${prod.qtd_maxima - prod.qtd_atual}`;
+    return `comprar-${prod.qtd_maxima - prod.qtd_atual}`;
   }
   if (prod.qtd_atual > prod.qtd_maxima) {
-    return "Estoque cheio";
+    return "cheio";
   }
-  return "Estoque OK";
+  return "ok";
 }
 
 async function atualizarQtd(id) {
@@ -260,13 +282,79 @@ function renderizarTabelaCompras(dados) {
   }
 
   nomes.forEach(nome => {
-    const linha = document.createElement("tr");
-    linha.innerHTML = `
-      <td>${nome}</td>
-      <td>${dados[nome]}</td>
-    `;
-    tbody.appendChild(linha);
+  const produto = todosProdutos.find(p => p.nome === nome); // assume variável global ou passa como argumento
+  const linha = document.createElement("tr");
+  linha.innerHTML = `
+    <td>${produto?.codigo || ""}</td>
+    <td>${nome}</td>
+    <td>${dados[nome]}</td>
+  `;
+  tbody.appendChild(linha);
+});
+}
+
+async function exportarComprasPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  const tbody = document.getElementById("tabela-compras");
+  const linhas = tbody.querySelectorAll("tr");
+
+  if (!linhas.length) {
+    alert("Nenhum item para exportar.");
+    return;
+  }
+
+  doc.setFontSize(14);
+  doc.text("Lista de Compras", 14, 20);
+
+  let y = 30;
+  doc.setFontSize(11);
+  doc.text("Código", 14, y);
+  doc.text("Produto", 60, y);
+  doc.text("Quantidade", 150, y);
+  y += 8;
+
+  linhas.forEach(tr => {
+    const cols = tr.querySelectorAll("td");
+    if (cols.length === 3) {
+      const codigo = cols[0].textContent.trim();
+      const nome = cols[1].textContent.trim();
+      const qtd = cols[2].textContent.trim();
+
+      doc.text(codigo, 14, y);
+      doc.text(nome, 60, y);
+      doc.text(qtd, 150, y);
+      y += 8;
+    }
   });
+
+  doc.save("lista-de-compras.pdf");
+}
+
+function renderizarStatusBadge(status) {
+  if (status.startsWith("comprar")) {
+    const qtd = status.split("-")[1];
+    return `<span class="badge bg-danger" title="Necessário comprar ${qtd}">Comprar ${qtd}</span>`;
+  }
+  if (status === "ok") {
+    return '<span class="badge bg-success">Estoque OK</span>';
+  }
+  if (status === "cheio") {
+    return '<span class="badge bg-warning text-dark">Estoque cheio</span>';
+  }
+  return status;
+}
+
+function gerarAcoes(id) {
+  return `
+    <button class="btn btn-sm btn-warning mb-1" onclick="editarProduto(${id})" title="Editar">
+      <i class="bi bi-pencil-square"></i>
+    </button><br/>
+    <button class="btn btn-sm btn-danger" onclick="excluirProduto(${id})" title="Excluir">
+      <i class="bi bi-trash"></i>
+    </button>
+  `;
 }
 
 window.addEventListener("load", carregarProdutos);

@@ -4,14 +4,34 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Controle de Estoque</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+  .nav-tabs .nav-link {
+    color: #ffc107 !important; /* amarelo */
+    border: 1px solid transparent;
+  }
+
+  .nav-tabs .nav-link:hover {
+    color: #fff;
+    border-color: #ffc107;
+  }
+
+  .nav-tabs .nav-link.active {
+    background-color: #ffc107 !important; /* fundo amarelo */
+    color: #000 !important;               /* texto preto */
+    border-color: #ffc107 !important;
+  }
+</style>
 </head>
-<body class="bg-dark text-white p-4">
+<body class="bg-black text-white p-4">
   <div class="container">
-    <h1 class="mb-4">Controle de Estoque</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+  <h1 class="fw-bold display-5 text-warning m-0">Controle de Estoque</h1>
+  <img src="img/logo.png" alt="Logo da Empresa" style="height: 100px;">
+</div>
 
     <!-- Abas -->
     <ul class="nav nav-tabs mb-4" id="tabs">
@@ -29,68 +49,72 @@
     <div class="tab-content">
       <!-- Aba Estoque -->
       <div class="tab-pane fade show active" id="estoque">
-  <div class="mb-4">
-    <h4>Cadastro de Produto</h4>
+        <div class="card shadow-sm mb-4" style="background-color: #ffda6b; border: 1px solid #222;">
+  <div class="card-body">
+    <h4 class="card-title fw-bold text-dark">Cadastro de Produto</h4>
     <form id="form-produto" class="row g-2">
-      <div class="col-md-2">
-        <input type="text" id="codigo" class="form-control" placeholder="Código" required>
-      </div>
-      <div class="col-md-2">
-        <input type="text" id="nome" class="form-control" placeholder="Nome do produto" required>
-      </div>
-      <div class="col-md-2">
-        <input type="number" id="qtd_minima" class="form-control" placeholder="Qtd mínima" required>
-      </div>
-      <div class="col-md-2">
-        <input type="number" id="qtd_maxima" class="form-control" placeholder="Qtd máxima" required>
-      </div>
-      <div class="col-md-2">
-        <input type="number" id="qtd_atual" class="form-control" placeholder="Qtd atual" required>
-      </div>
-      <div class="col-md-2">
-        <input type="text" id="categoria" class="form-control" placeholder="Categoria" required>
-      </div>
-      <div class="col-md-2">
-        <button type="submit" class="btn btn-warning w-100">Salvar</button>
-      </div>
-    </form>
-  </div>
+              <div class="col-md-2">
+                <input type="text" id="codigo" class="form-control" placeholder="Código" required>
+              </div>
+              <div class="col-md-2">
+                <input type="text" id="nome" class="form-control" placeholder="Nome do produto" required>
+              </div>
+              <div class="col-md-2">
+                <input type="number" id="qtd_minima" class="form-control" placeholder="Qtd mínima" required>
+              </div>
+              <div class="col-md-2">
+                <input type="number" id="qtd_maxima" class="form-control" placeholder="Qtd máxima" required>
+              </div>
+              <div class="col-md-2">
+                <input type="number" id="qtd_atual" class="form-control" placeholder="Qtd atual" required>
+              </div>
+              <div class="col-md-2">
+                <input type="text" id="categoria" class="form-control" placeholder="Categoria" required>
+              </div>
+              <div class="col-md-2">
+        <button type="submit" class="btn w-100" style="background-color: #e69500; color: black;">
+          <i class="bi bi-save"></i> Salvar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
 
-  <div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-      <label for="filtro-categoria" class="me-2">Filtrar por categoria:</label>
-      <label for="filtro-status" class="me-2 ms-4">Status:</label>
-      <select id="filtro-status" class="form-select d-inline w-auto" onchange="carregarProdutos()">
-        <option value="">Todos</option>
-        <option value="ok">Estoque OK</option>
-        <option value="comprar">Comprar</option>
-        <option value="cheio">Estoque cheio</option>
-      </select>
-      <select id="filtro-categoria" class="form-select d-inline w-auto" onchange="carregarProdutos()">
-        <option value="">Todas</option>
-      </select>
-    </div>
-    <button class="btn btn-outline-light" onclick="exportarExcel()">Exportar Excel</button>
-  </div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <input type="text" id="busca-produto" class="form-control" placeholder="Buscar por nome ou código..." oninput="carregarProdutos()">
+            <select id="filtro-status" class="form-select" onchange="carregarProdutos()">
+              <option value="">Todos os status</option>
+              <option value="ok">Estoque OK</option>
+              <option value="comprar">Comprar</option>
+              <option value="cheio">Estoque cheio</option>
+            </select>
+            <select id="filtro-categoria" class="form-select" onchange="carregarProdutos()">
+              <option value="">Todas as categorias</option>
+            </select>
+          </div>
+          <button class="btn btn-outline-light" onclick="exportarExcel()">
+            <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+          </button>
+        </div>
 
-  <div>
-    <h4>Produtos Cadastrados</h4>
-    <table class="table table-dark table-bordered">
-      <thead>
-        <tr>
-          <th>Código</th>
-          <th>Nome</th>
-          <th>Qtd Atual</th>
-          <th>Status</th>
-          <th>Atualizar Estoque</th>
-          <th>Ações</th>
-          <th>Última Atualização</th>
-        </tr>
-      </thead>
-      <tbody id="produtos-lista"></tbody>
-    </table>
-  </div>
-</div>
+        <div class="table-responsive">
+          <table class="table table-dark table-bordered align-middle text-center">
+            <thead class="table-light text-dark">
+              <tr>
+                <th>Código</th>
+                <th>Nome</th>
+                <th>Qtd Atual</th>
+                <th>Status</th>
+                <th>Atualizar</th>
+                <th>Ações</th>
+                <th>Última Atualização</th>
+              </tr>
+            </thead>
+            <tbody id="produtos-lista"></tbody>
+          </table>
+        </div>
+      </div>
 
       <!-- Aba Relatórios -->
       <div class="tab-pane fade" id="relatorios">
@@ -108,23 +132,31 @@
 
       <!-- Aba Lista de Compras -->
       <div class="tab-pane fade" id="lista-compras">
-        <div class="mt-4">
+        <div class="d-flex justify-content-end mb-2">
+          <button class="btn btn-outline-light" onclick="exportarComprasPDF()">
+            <i class="bi bi-file-earmark-pdf"></i> Exportar PDF
+          </button>
+        </div>
+
+        <div class="mt-2">
           <h5>Produtos com Necessidade de Compra</h5>
           <table class="table table-dark table-bordered">
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Quantidade a Comprar</th>
-              </tr>
-            </thead>
-            <tbody id="tabela-compras"></tbody>
-          </table>
+  <thead>
+    <tr>
+      <th>Código</th>
+      <th>Nome</th>
+      <th>Quantidade a Comprar</th>
+    </tr>
+  </thead>
+  <tbody id="tabela-compras"></tbody>
+</table>
         </div>
       </div>
     </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="app.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
