@@ -61,43 +61,48 @@ async function carregarProdutos() {
 
   const inicio = (paginaAtual - 1) * 10;
   const fim = inicio + 10;
-  const produtosPagina = produtosFiltrados.slice(inicio, fim);
+  // Primeiro: percorre todos os filtrados para atualizar gráficos e compras
+produtosFiltrados.forEach(produto => {
+  const status = calcularStatus(produto);
+  categorias.add(produto.categoria);
 
-  produtosPagina.forEach(produto => {
-    const status = calcularStatus(produto);
-    const linha = document.createElement("tr");
-    linha.innerHTML = `
-      <td>${produto.codigo || ""}</td>
-      <td>${produto.nome}</td>
-      <td>${produto.qtd_atual}</td>
-      <td>${renderizarStatusBadge(status)}</td>
-      <td>
-        <input type="number" min="0" class="form-control form-control-sm" id="input-${produto.id}" placeholder="Nova qtd" />
-        <button class="btn btn-sm btn-success mt-1" onclick="atualizarQtd(${produto.id})" title="Atualizar quantidade">
-          <i class="bi bi-check-circle"></i>
-        </button>
-      </td>
-      <td>
-        <button class="btn btn-sm btn-warning mb-1" onclick="editarProduto(${produto.id})" title="Editar">
-          <i class="bi bi-pencil-square"></i>
-        </button><br/>
-        <button class="btn btn-sm btn-danger" onclick="excluirProduto(${produto.id})" title="Excluir">
-          <i class="bi bi-trash"></i>
-        </button>
-      </td>
-      <td>${new Date(produto.atualizado_em).toLocaleString("pt-BR")}</td>
-    `;
-    tbody.appendChild(linha);
+  if (status === "ok") contagemStatus.ok++;
+  else if (status.startsWith("comprar")) {
+    contagemStatus.comprar++;
+    const qtd = parseInt(status.split("-")[1]);
+    produtosParaComprar[produto.nome] = qtd;
+  } else if (status === "cheio") contagemStatus.cheio++;
+});
 
-    categorias.add(produto.categoria);
+// Depois: apenas exibe os da página atual
+const produtosPagina = produtosFiltrados.slice(inicio, fim);
 
-    if (status === "ok") contagemStatus.ok++;
-    else if (status.startsWith("comprar")) {
-      contagemStatus.comprar++;
-      const qtd = parseInt(status.split("-")[1]);
-      produtosParaComprar[produto.nome] = qtd;
-    } else if (status === "cheio") contagemStatus.cheio++;
-  });
+produtosPagina.forEach(produto => {
+  const status = calcularStatus(produto);
+  const linha = document.createElement("tr");
+  linha.innerHTML = `
+    <td>${produto.codigo || ""}</td>
+    <td>${produto.nome}</td>
+    <td>${produto.qtd_atual}</td>
+    <td>${renderizarStatusBadge(status)}</td>
+    <td>
+      <input type="number" min="0" class="form-control form-control-sm" id="input-${produto.id}" placeholder="Nova qtd" />
+      <button class="btn btn-sm btn-success mt-1" onclick="atualizarQtd(${produto.id})" title="Atualizar quantidade">
+        <i class="bi bi-check-circle"></i>
+      </button>
+    </td>
+    <td>
+      <button class="btn btn-sm btn-warning mb-1" onclick="editarProduto(${produto.id})" title="Editar">
+        <i class="bi bi-pencil-square"></i>
+      </button><br/>
+      <button class="btn btn-sm btn-danger" onclick="excluirProduto(${produto.id})" title="Excluir">
+        <i class="bi bi-trash"></i>
+      </button>
+    </td>
+    <td>${new Date(produto.atualizado_em).toLocaleString("pt-BR")}</td>
+  `;
+  tbody.appendChild(linha);
+});
 
   renderizarTabelaCompras(produtosParaComprar);
   preencherFiltroCategorias(categorias);
@@ -112,13 +117,9 @@ async function carregarProdutos() {
 }
 
 function renderizarPaginacao(totalPaginas) {
-  let container = document.getElementById("paginacao");
-  if (!container) {
-    container = document.createElement("div");
-    container.id = "paginacao";
-    container.className = "mt-3 text-center";
-    document.querySelector(".container").appendChild(container);
-  }
+  const container = document.getElementById("paginacao");
+if (!container) return; // evita erro se a div sumir
+container.innerHTML = ""; // limpa paginação antiga
 
   container.innerHTML = "";
   for (let i = 1; i <= totalPaginas; i++) {
