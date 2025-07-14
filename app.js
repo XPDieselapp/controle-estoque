@@ -191,7 +191,24 @@ document.getElementById("form-produto").addEventListener("submit", async (e) => 
 });
 
 async function editarProduto(id) {
-  const { data } = await supabaseClient.from("Produtos").select("*").eq("id", id).single();
+  console.log("Tentando editar produto com ID:", id);
+
+  const { data, error } = await supabaseClient
+    .from("Produtos")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error) {
+    console.error("Erro ao buscar produto:", error.message);
+    alert("Erro ao carregar o produto para edição.");
+    return;
+  }
+
+  if (!data) {
+    alert("Produto não encontrado.");
+    return;
+  }
 
   document.getElementById("codigo").value = data.codigo;
   document.getElementById("nome").value = data.nome;
