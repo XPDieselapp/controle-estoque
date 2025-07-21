@@ -15,9 +15,9 @@ let todosProdutos = []; // declarar fora da função (global)
 
 async function carregarProdutos() {
   const { data, error } = await supabaseClient
-    .from("Produtos")
-    .select("*")
-    .order("id", { ascending: true });
+  .from("Produtos")
+  .select("id, nome, codigo, categoria, qtd_atual, qtd_minima, qtd_maxima, atualizado_em, prioridade_compra")
+  .order("nome", { ascending: true });
 
   if (error) {
     console.error("Erro ao carregar produtos:", error.message);
@@ -293,22 +293,30 @@ function renderizarTabelaCompras(dados) {
 
   tbody.innerHTML = "";
 
-  const nomes = Object.keys(dados);
+  const nomes = Object.keys(dados).sort((a, b) => a.localeCompare(b));
   if (nomes.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="2" class="text-center">Nenhum produto com necessidade de compra.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center">Nenhum produto com necessidade de compra.</td></tr>`;
     return;
   }
 
   nomes.forEach(nome => {
-  const produto = todosProdutos.find(p => p.nome === nome); // assume variável global ou passa como argumento
-  const linha = document.createElement("tr");
-  linha.innerHTML = `
-    <td>${produto?.codigo || ""}</td>
-    <td>${nome}</td>
-    <td>${dados[nome]}</td>
-  `;
-  tbody.appendChild(linha);
-});
+    const produto = todosProdutos.find(p => p.nome === nome);
+    const prioridade = produto?.prioridade_compra;
+
+    const linha = document.createElement("tr");
+    linha.innerHTML = `
+      <td>
+        <input type="checkbox" class="form-check-input prioridade-checkbox" 
+          title="Marcar como prioridade"
+          ${prioridade ? "checked" : ""}
+          onchange="atualizarPrioridadeCompra(${produto?.id}, this.checked)">
+      </td>
+      <td>${produto?.codigo || ""}</td>
+      <td>${nome}</td>
+      <td>${dados[nome]}</td>
+    `;
+    tbody.appendChild(linha);
+  });
 }
 
 async function exportarComprasPDF() {
@@ -328,23 +336,26 @@ async function exportarComprasPDF() {
 
   let y = 30;
   doc.setFontSize(11);
-  doc.text("Código", 14, y);
-  doc.text("Produto", 60, y);
-  doc.text("Quantidade", 150, y);
+  doc.text("Prioridade", 14, y);
+doc.text("Código", 40, y);
+doc.text("Produto", 80, y);
+doc.text("Quantidade", 160, y);
   y += 8;
 
   linhas.forEach(tr => {
     const cols = tr.querySelectorAll("td");
-    if (cols.length === 3) {
-      const codigo = cols[0].textContent.trim();
-      const nome = cols[1].textContent.trim();
-      const qtd = cols[2].textContent.trim();
+    if (cols.length === 4) {
+  const prioridade = cols[0].querySelector("input")?.checked ? "Sim" : "Não";
+  const codigo = cols[1].textContent.trim();
+  const nome = cols[2].textContent.trim();
+  const qtd = cols[3].textContent.trim();
 
-      doc.text(codigo, 14, y);
-      doc.text(nome, 60, y);
-      doc.text(qtd, 150, y);
-      y += 8;
-    }
+  doc.text(prioridade, 14, y);
+  doc.text(codigo, 40, y);
+  doc.text(nome, 80, y);
+  doc.text(qtd, 160, y);
+  y += 8;
+}
   });
 
   doc.save("lista-de-compras.pdf");
@@ -373,6 +384,18 @@ function gerarAcoes(id) {
       <i class="bi bi-trash"></i>
     </button>
   `;
+}
+
+async function atualizarPrioridadeCompra(id, marcado) {
+  const { error } = await supabaseClient
+    .from("Produtos")
+    .update({ prioridade_compra: marcado })
+    .eq("id", id);
+
+  if (error) {
+    console.error("Erro ao atualizar prioridade:", error.message);
+    alert("Erro ao salvar prioridade de compra.");
+  }
 }
 
 window.addEventListener("load", carregarProdutos);
