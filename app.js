@@ -337,25 +337,31 @@ async function exportarComprasPDF() {
   let y = 30;
   doc.setFontSize(11);
   doc.text("Prioridade", 14, y);
-doc.text("Código", 40, y);
-doc.text("Produto", 80, y);
-doc.text("Quantidade", 160, y);
+  doc.text("Código", 40, y);
+  doc.text("Produto", 80, y);
+  doc.text("Quantidade", 160, y);
   y += 8;
 
-  linhas.forEach(tr => {
+  linhas.forEach((tr, index) => {
     const cols = tr.querySelectorAll("td");
     if (cols.length === 4) {
-  const prioridade = cols[0].querySelector("input")?.checked ? "Sim" : "Não";
-  const codigo = cols[1].textContent.trim();
-  const nome = cols[2].textContent.trim();
-  const qtd = cols[3].textContent.trim();
+      const prioridade = cols[0].querySelector("input")?.checked ? "✔ Prioritário" : "-";
+      const codigo = cols[1].textContent.trim();
+      const nome = cols[2].textContent.trim();
+      const qtd = cols[3].textContent.trim();
 
-  doc.text(prioridade, 14, y);
-  doc.text(codigo, 40, y);
-  doc.text(nome, 80, y);
-  doc.text(qtd, 160, y);
-  y += 8;
-}
+      // Adiciona nova página se necessário
+      if (y > 280) {
+        doc.addPage();
+        y = 20;
+      }
+
+      doc.text(prioridade, 14, y);
+      doc.text(codigo, 40, y);
+      doc.text(nome, 80, y);
+      doc.text(qtd, 160, y);
+      y += 8;
+    }
   });
 
   doc.save("lista-de-compras.pdf");
