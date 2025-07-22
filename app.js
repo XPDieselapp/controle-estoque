@@ -234,9 +234,26 @@ async function excluirProduto(id) {
 }
 
 function exportarExcel() {
-  const tabela = document.querySelector("table");
-  const wb = XLSX.utils.table_to_book(tabela, { sheet: "Estoque" });
-  XLSX.writeFile(wb, "estoque.xlsx");
+  // Cria uma planilha com os produtos carregados (sem depender da tabela visível)
+  const dados = todosProdutos.map(prod => {
+    const status = calcularStatus(prod);
+    return {
+      Código: prod.codigo,
+      Nome: prod.nome,
+      Categoria: prod.categoria,
+      "Qtd Mínima": prod.qtd_minima,
+      "Qtd Máxima": prod.qtd_maxima,
+      "Qtd Atual": prod.qtd_atual,
+      Status: status.startsWith("comprar") ? "Comprar" : status === "cheio" ? "Estoque cheio" : "Estoque OK",
+      "Última Atualização": new Date(prod.atualizado_em).toLocaleString("pt-BR")
+    };
+  });
+
+  const worksheet = XLSX.utils.json_to_sheet(dados);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Estoque");
+
+  XLSX.writeFile(workbook, "estoque-completo.xlsx");
 }
 
 function renderizarGraficoStatus(dados) {
@@ -345,7 +362,7 @@ async function exportarComprasPDF() {
   linhas.forEach((tr, index) => {
     const cols = tr.querySelectorAll("td");
     if (cols.length === 4) {
-      const prioridade = cols[0].querySelector("input")?.checked ? "✔ Prioritário" : "-";
+      const prioridade = cols[0].querySelector("input")?.checked ? "Sim" : "Não";
       const codigo = cols[1].textContent.trim();
       const nome = cols[2].textContent.trim();
       const qtd = cols[3].textContent.trim();
