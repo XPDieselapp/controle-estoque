@@ -343,18 +343,22 @@ function renderizarTabelaCompras(dados) {
     return;
   }
 
-  nomes.forEach(nome => {
+  nomes.forEach((nome) => {
     const produto = todosProdutos.find(p => p.nome === nome);
-    const prioridade = produto?.prioridade_compra;
+    const prioridade = !!produto?.prioridade_compra;
+    const qtdComprar = dados[nome]; // vem de produtosParaComprar
 
-    const linha = document.createElement("tr");
-    const opcoesExtras = [];
-    const textoExtras = opcoesExtras.length > 0 ? opcoesExtras.join(", ") : "";
-
-    linha.innerHTML = `
-      <td>${textoExtras}</td>
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td>
+        <input type="checkbox" ${prioridade ? "checked" : ""} 
+               onchange="atualizarPrioridadeCompra(${produto.id}, this.checked)" />
+      </td>
+      <td>${produto?.codigo || "-"}</td>
+      <td>${nome}</td>
+      <td>${qtdComprar}</td>
     `;
-    tbody.appendChild(linha);
+    tbody.appendChild(tr);
   });
 }
 
