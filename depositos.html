@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cadastro de Depósitos/Lotes</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { background-color: #000; color: #fff; }
+    label { font-weight: bold; }
+  </style>
+</head>
+<body class="p-4">
+  <div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h2 class="text-warning">Cadastrar Depósitos / Lotes</h2>
+      <a href="index.html" class="btn btn-outline-light"><i class="bi bi-arrow-left"></i> Voltar</a>
+    </div>
+
+    <div class="card bg-dark text-white mb-4">
+      <div class="card-body">
+        <form id="form-deposito" class="row g-3">
+          <div class="col-md-6">
+            <label for="nome">Nome do Depósito/Lote</label>
+            <input type="text" id="nome" class="form-control" placeholder="Ex: LOTE A123" required>
+          </div>
+          <div class="col-md-3 d-flex align-items-end">
+            <button type="submit" class="btn btn-warning w-100">
+              <i class="bi bi-save"></i> Salvar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-dark table-bordered text-center align-middle">
+        <thead class="table-light text-dark">
+          <tr>
+            <th>#</th>
+            <th>Nome</th>
+            <th>Data de Criação</th>
+          </tr>
+        </thead>
+        <tbody id="lista-depositos"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const { createClient } = supabase;
+    const supabaseClient = createClient(
+      'https://gjvdghwkueqrametwunb.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqdmRnaHdrdWVxcmFtZXR3dW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5Nzg0MTcsImV4cCI6MjA2NzU1NDQxN30.dg-8xLC0d1JwjOKIPL2sMcuecV30OdC-PeFGsnrhEM0'
+    );
+
+    const form = document.getElementById("form-deposito");
+    const tabela = document.getElementById("lista-depositos");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nome = document.getElementById("nome").value.trim();
+      if (!nome) return alert("Informe o nome do depósito.");
+
+      const { error } = await supabaseClient
+        .from("Depositos")
+        .insert([{ nome }]);
+
+      if (error) {
+        alert("Erro ao salvar depósito: " + error.message);
+      } else {
+        document.getElementById("nome").value = "";
+        carregarDepositos();
+      }
+    });
+
+    async function carregarDepositos() {
+      const { data, error } = await supabaseClient
+        .from("Depositos")
+        .select("*")
+        .order("criado_em", { ascending: false });
+
+      if (error) {
+        tabela.innerHTML = `<tr><td colspan="3">Erro ao carregar depósitos</td></tr>`;
+        return;
+      }
+
+      if (!data.length) {
+        tabela.innerHTML = `<tr><td colspan="3">Nenhum depósito cadastrado ainda.</td></tr>`;
+        return;
+      }
+
+      tabela.innerHTML = "";
+      data.forEach(dep => {
+        const linha = document.createElement("tr");
+        linha.innerHTML = `
+          <td>${dep.id}</td>
+          <td>${dep.nome}</td>
+          <td>${new Date(dep.criado_em).toLocaleDateString("pt-BR")}</td>
+        `;
+        tabela.appendChild(linha);
+      });
+    }
+
+    window.addEventListener("DOMContentLoaded", carregarDepositos);
+  </script>
+</body>
+</html>

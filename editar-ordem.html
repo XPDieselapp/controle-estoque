@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Editar Ordem de Produção</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body { background-color: #000; color: #fff; }
+    label { font-weight: bold; }
+    .list-group-item { background-color: #222; color: #fff; }
+    #sugestoes-insumos {
+      max-height: 150px;
+      overflow-y: auto;
+      position: absolute;
+      z-index: 999;
+      width: 100%;
+    }
+  </style>
+</head>
+<body class="p-4">
+  <div class="container">
+    <h2 class="text-warning mb-4">Editar Ordem de Produção</h2>
+
+    <form id="form-editar-ordem" class="row g-3">
+
+      <div class="col-md-4">
+        <label>Produto *</label>
+        <input type="text" id="produto" class="form-control" required>
+      </div>
+      <div class="col-md-2">
+  <label>SKU</label>
+  <input type="text" id="sku" class="form-control">
+</div>
+      <div class="col-md-2">
+        <label>Quantidade *</label>
+        <input type="number" id="quantidade" class="form-control" min="1" required>
+      </div>
+      <div class="col-md-4">
+        <label>Técnico Responsável *</label>
+        <input type="text" id="tecnico" class="form-control" required>
+      </div>
+      <div class="col-md-3">
+        <label>Data Início</label>
+        <input type="date" id="data-inicio" class="form-control">
+      </div>
+      <div class="col-md-3">
+        <label>Data Final</label>
+        <input type="date" id="data-fim" class="form-control">
+      </div>
+      <div class="col-md-3">
+        <label>Status</label>
+        <select id="status" class="form-select">
+          <option value="não iniciado">Não iniciado</option>
+          <option value="em produção">Em produção</option>
+          <option value="pausado">Pausado</option>
+          <option value="finalizado">Finalizado</option>
+        </select>
+      </div>
+
+      <div class="col-md-6">
+  <label>Depósito de Destino *</label>
+  <select id="deposito-destino" class="form-select" required>
+    <option value="">Selecione o depósito</option>
+  </select>
+</div>
+
+<div class="col-md-6">
+  <label>Depósito de Origem dos Insumos</label>
+  <select id="deposito-origem" class="form-select">
+    <option value="">Selecione o depósito de origem</option>
+  </select>
+</div>
+
+      <div class="col-12 mt-4">
+        <h5 class="text-info">Composição (Insumos)</h5>
+        <div class="row g-2 mb-2">
+          <div class="col-md-6 position-relative">
+            <input type="text" id="busca-insumo" class="form-control" placeholder="Digite nome ou código..." oninput="filtrarSugestoesInsumos()" autocomplete="off">
+            <div id="sugestoes-insumos" class="list-group"></div>
+          </div>
+          <div class="col-md-4">
+  <input type="text" id="codigo-entrada-insumo" class="form-control" placeholder="Código de entrada (Ex: PC-123)">
+</div>
+          <div class="col-md-2">
+            <input type="number" id="custo-insumo" class="form-control" placeholder="Custo (R$)">
+          </div>
+          <div class="col-md-2">
+            <button type="button" class="btn btn-success w-100" onclick="adicionarInsumo()">Adicionar</button>
+          </div>
+        </div>
+
+        <ul id="lista-insumos" class="list-group list-group-flush"></ul>
+      </div>
+
+      <div class="col-12">
+  <label class="form-label">Opções do Técnico:</label><br>
+  <div class="form-check form-check-inline">
+    <input class="form-check-input" type="checkbox" id="valvula-usada">
+    <label class="form-check-label" for="valvula-usada">Válvula Usada</label>
+  </div>
+  <div class="form-check form-check-inline">
+    <input class="form-check-input" type="checkbox" id="ponteira-usada">
+    <label class="form-check-label" for="ponteira-usada">Ponteira Usada</label>
+  </div>
+  <div class="form-check form-check-inline">
+    <input class="form-check-input" type="checkbox" id="valvula-retificada">
+    <label class="form-check-label" for="valvula-retificada">Válvula Retificada</label>
+  </div>
+</div>
+
+    <button type="submit" class="btn btn-warning">Salvar Alterações</button>
+    
+        <a href="index.html#producao" class="btn btn-outline-light ms-2">Voltar</a>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const { createClient } = supabase;
+    const supabaseClient = createClient(
+      'https://gjvdghwkueqrametwunb.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdqdmRnaHdrdWVxcmFtZXR3dW5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5Nzg0MTcsImV4cCI6MjA2NzU1NDQxN30.dg-8xLC0d1JwjOKIPL2sMcuecV30OdC-PeFGsnrhEM0'
+    );
+
+    const params = new URLSearchParams(window.location.search);
+    const ordemId = params.get("id");
+    let insumos = [];
+    let insumoSelecionado = null;
+    let todosProdutos = [];
+
+    async function carregarOrdem() {
+      const { data, error } = await supabaseClient
+        .from("OrdensProducao")
+        .select("*")
+        .eq("id", ordemId)
+        .single();
+
+      if (error || !data) {
+        alert("Erro ao carregar ordem.");
+        return;
+      }
+
+      document.getElementById("produto").value = data?.nome_produto || "";
+      document.getElementById("sku").value = data?.sku || "";
+      document.getElementById("quantidade").value = data?.quantidade || "";
+      document.getElementById("tecnico").value = data?.tecnico || "";
+      document.getElementById("data-inicio").value = data?.data_inicio?.split("T")[0] || "";
+      document.getElementById("data-fim").value = data?.data_fim?.split("T")[0] || "";
+      document.getElementById("status").value = data?.status || "não iniciado";
+      document.getElementById("valvula-usada").checked = data?.valvula_usada || false;
+      document.getElementById("ponteira-usada").checked = data?.ponteira_usada || false;
+      document.getElementById("valvula-retificada").checked = data?.valvula_retificada || false;
+
+      insumos = data.insumos || [];
+      renderizarInsumos();
+
+      await carregarDepositos();
+      document.getElementById("deposito-destino").value = data?.deposito_destino || "";
+      await carregarDepositosOrigem();
+      document.getElementById("deposito-origem").value = data?.deposito_origem || "";
+    }
+
+    
+    async function carregarDepositosOrigem() {
+      const select = document.getElementById("deposito-origem");
+
+      const { data, error } = await supabaseClient
+        .from("Depositos")
+        .select("*")
+        .order("nome", { ascending: true });
+
+      if (error) {
+        console.error("Erro ao carregar depósitos de origem:", error.message);
+        return;
+      }
+
+      data.forEach(dep => {
+        const opt = document.createElement("option");
+        opt.value = dep.nome;
+        opt.textContent = dep.nome;
+        select.appendChild(opt);
+      });
+    }
+
+
+    async function carregarDepositos() {
+      const select = document.getElementById("deposito-destino");
+
+      const { data, error } = await supabaseClient
+        .from("Depositos")
+        .select("*")
+        .order("nome", { ascending: true });
+
+      if (error) {
+        console.error("Erro ao carregar depósitos:", error.message);
+        return;
+      }
+
+      data.forEach(dep => {
+        const opt = document.createElement("option");
+        opt.value = dep.nome;
+        opt.textContent = dep.nome;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderizarInsumos() {
+      const lista = document.getElementById("lista-insumos");
+      lista.innerHTML = "";
+
+      if (!insumos.length) {
+        lista.innerHTML = `<li class="list-group-item text-muted">Nenhum insumo cadastrado.</li>`;
+        return;
+      }
+
+      insumos.forEach((insumo, index) => {
+        const item = document.createElement("li");
+        item.className = "list-group-item d-flex justify-content-between align-items-center";
+        item.innerHTML = `
+          ${insumo.nome} (SKU: ${insumo.codigo})<br>
+<span class="text-warning">Entrada: ${insumo.codigo_entrada || "-"}</span> - 
+R$ ${insumo.custo.toFixed(2)}
+          <button class="btn btn-sm btn-danger" onclick="removerInsumo(${index})">Remover</button>
+        `;
+        lista.appendChild(item);
+      });
+    }
+
+    function removerInsumo(index) {
+      insumos.splice(index, 1);
+      renderizarInsumos();
+    }
+
+    function filtrarSugestoesInsumos() {
+      const termo = document.getElementById("busca-insumo").value.toLowerCase();
+      const sugestoesDiv = document.getElementById("sugestoes-insumos");
+      sugestoesDiv.innerHTML = "";
+
+      if (!termo) return;
+
+      const filtrados = todosProdutos.filter(p =>
+        p.nome.toLowerCase().includes(termo) ||
+        (p.codigo || "").toLowerCase().includes(termo)
+      );
+
+      filtrados.forEach(produto => {
+        const btn = document.createElement("button");
+        btn.className = "list-group-item list-group-item-action";
+        btn.textContent = `${produto.nome} (${produto.codigo || "sem código"})`;
+        btn.onclick = () => selecionarInsumo(produto);
+        sugestoesDiv.appendChild(btn);
+      });
+    }
+
+    function selecionarInsumo(produto) {
+      insumoSelecionado = produto;
+      document.getElementById("busca-insumo").value = `${produto.nome} (${produto.codigo || ""})`;
+      document.getElementById("sugestoes-insumos").innerHTML = "";
+    }
+
+    function adicionarInsumo() {
+  if (!insumoSelecionado) {
+    alert("Selecione um insumo válido!");
+    return;
+  }
+
+  const custo = parseFloat(document.getElementById("custo-insumo").value);
+  const codigoEntrada = document.getElementById("codigo-entrada-insumo").value;
+
+  if (isNaN(custo)) {
+    alert("Informe o custo do insumo.");
+    return;
+  }
+
+  insumos.push({
+    nome: insumoSelecionado.nome,
+    codigo: insumoSelecionado.codigo,
+    custo,
+    codigo_entrada: codigoEntrada
+  });
+
+  document.getElementById("busca-insumo").value = "";
+  document.getElementById("custo-insumo").value = "";
+  document.getElementById("codigo-entrada-insumo").value = "";
+  insumoSelecionado = null;
+  renderizarInsumos();
+}
+
+    async function carregarProdutos() {
+      const { data, error } = await supabaseClient
+        .from("Produtos")
+        .select("id, nome, codigo");
+
+      if (!error) todosProdutos = data;
+    }
+
+    document.getElementById("form-editar-ordem").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const nomeProduto = document.getElementById("produto").value;
+  const quantidadeProduzida = parseFloat(document.getElementById("quantidade").value);
+  const statusAtual = document.getElementById("status").value;
+
+  const atualizada = {
+    nome_produto: nomeProduto,
+    codigo_produto: document.getElementById("sku").value,
+    quantidade: quantidadeProduzida,
+    tecnico: document.getElementById("tecnico").value,
+    data_inicio: document.getElementById("data-inicio").value,
+    data_fim: document.getElementById("data-fim").value,
+    status: statusAtual,
+    insumos,
+    valvula_usada: document.getElementById("valvula-usada").checked,
+    ponteira_usada: document.getElementById("ponteira-usada").checked,
+    valvula_retificada: document.getElementById("valvula-retificada").checked,
+    deposito_destino: document.getElementById("deposito-destino").value,
+    deposito_origem: document.getElementById("deposito-origem").value,
+    custo: insumos.reduce((total, i) => total + i.custo, 0)
+  };
+
+  const { error: erroUpdate } = await supabaseClient
+    .from("OrdensProducao")
+    .update(atualizada)
+    .eq("id", ordemId);
+
+  if (erroUpdate) {
+    alert("Erro ao atualizar ordem.");
+    return;
+  }
+
+  // Se a ordem foi finalizada, atualiza o estoque
+  if (statusAtual === "finalizado") {
+    const { data: produtosEncontrados, error: erroBuscaProduto } = await supabaseClient
+      .from("Produtos")
+      .select("*")
+      .ilike("nome", nomeProduto);
+
+    if (erroBuscaProduto || !produtosEncontrados || produtosEncontrados.length === 0) {
+      alert("Produto não encontrado para atualizar o estoque.");
+    } else {
+      const produto = produtosEncontrados[0];
+      const novaQuantidade = (produto.qtd_atual || 0) + quantidadeProduzida;
+
+      const { error: erroEstoque } = await supabaseClient
+        .from("Produtos")
+        .update({ qtd_atual: novaQuantidade })
+        .eq("id", produto.id);
+
+      if (erroEstoque) {
+        alert("Erro ao atualizar o estoque.");
+      }
+    }
+  }
+
+  alert("Ordem atualizada com sucesso!");
+  window.location.href = "index.html#producao";
+});
+
+document.addEventListener("DOMContentLoaded", async () => {
+  await carregarProdutos();
+  await carregarOrdem();
+});
+
+  </script>
+</body>
+</html>
+
+
+
